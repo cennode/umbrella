@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>양심우산 · 스마트 대여함</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-mist:#EEF3F9;
+    --card:#FFFFFF;
+    --ink:#16233D;
+    --ink-soft:#5B6472;
+    --blue:#3E6FE0;
+    --blue-pale:#DEEAFB;
+    --green:#1E9A5A;
+    --green-pale:#E1F5EA;
+    --coral:#E1503F;
+    --coral-pale:#FBE4E1;
+    --line:#DEE4EC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--bg-mist);
+    font-family:'Noto Sans KR',sans-serif;
+    color:var(--ink);
+    position:relative;
+    overflow:hidden;
+    padding:24px 16px;
+  }
+
+  /* 배경의 은은한 빗줄기 — 실제 우산이 쓰이는 '비 오는 날'을 배경에 새겨둠 */
+  .rain{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0;}
+  .rain span{
+    position:absolute; top:-10%; width:1px; height:60px;
+    background:linear-gradient(to bottom, transparent, #B9CBE8, transparent);
+    animation:fall 2.6s linear infinite;
+    opacity:.5;
+  }
+  @keyframes fall{ to{ transform:translateY(115vh); } }
+  @media (prefers-reduced-motion: reduce){ .rain span{ animation:none; display:none; } }
+
+  .card{
+    position:relative; z-index:1;
+    width:100%; max-width:400px;
+    background:var(--card);
+    border-radius:32px;
+    padding:36px 28px 30px;
+    box-shadow:0 20px 50px -20px rgba(22,35,61,.25);
+    display:flex; flex-direction:column; align-items:center;
+    text-align:center;
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; font-weight:700; letter-spacing:.14em;
+    color:var(--blue); text-transform:uppercase;
+  }
+  .brand{
+    font-family:'Jua',sans-serif;
+    font-size:30px; margin:4px 0 14px; color:var(--ink);
+    letter-spacing:-0.5px;
+  }
+
+  .chip{
+    display:inline-flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500;
+    color:var(--ink-soft);
+    background:var(--bg-mist);
+    border:1px solid var(--line);
+    padding:6px 14px; border-radius:100px; margin-bottom:18px;
+  }
+  .chip-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;transition:background .2s;}
+  .chip-dot.rented{background:var(--coral);}
+
+  /* 시그니처 요소: 잠금 상태를 그대로 반영하는 우산 그래픽 */
+  .canopy-stage{ width:150px; height:120px; margin-bottom:8px; position:relative; }
+  .canopy-stage svg{ width:100%; height:100%; overflow:visible; }
+  #openGroup, #closedGroup{ transition:opacity .35s ease; }
+  #openGroup.hide, #closedGroup.hide{ opacity:0; pointer-events:none; position:absolute; }
+  .drop{ animation:drip 1.8s ease-in infinite; }
+  .drop:nth-child(2){ animation-delay:.5s; }
+  .drop:nth-child(3){ animation-delay:1s; }
+  @keyframes drip{ 0%{ opacity:0; transform:translateY(0);} 20%{opacity:1;} 100%{opacity:0; transform:translateY(18px);} }
+  @media (prefers-reduced-motion: reduce){ .drop{ animation:none; opacity:.6; } }
+
+  .status-word{
+    font-family:'Jua',sans-serif; font-size:22px; margin-bottom:24px;
+  }
+  .status-word.available{ color:var(--green); }
+  .status-word.rented{ color:var(--coral); }
+
+  .msg{
+    width:100%; font-size:13.5px; font-weight:500; line-height:1.5;
+    padding:12px 14px; border-radius:12px; margin-bottom:16px;
+    text-align:left;
+  }
+  .msg.hidden{ display:none; }
+  .msg.success{ background:var(--green-pale); color:#177849; }
+  .msg.error{ background:var(--coral-pale); color:#b93a2c; }
+
+  form{ width:100%; }
+  .field{ text-align:left; margin-bottom:14px; }
+  .field label{
+    display:block; font-size:13px; font-weight:700; color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .field input{
+    width:100%; height:48px; border-radius:12px; border:1.5px solid var(--line);
+    padding:0 14px; font-size:16px; font-family:'JetBrains Mono',monospace;
+    color:var(--ink); outline:none; background:#FBFCFE;
+    transition:border-color .15s;
+  }
+  .field input:focus{ border-color:var(--blue); background:#fff; }
+  .field input::placeholder{ color:#A8B0BD; font-family:'Noto Sans KR',sans-serif; }
+
+  button{
+    width:100%; height:52px; border:none; border-radius:14px;
+    font-family:'Noto Sans KR',sans-serif; font-size:16px; font-weight:700;
+    cursor:pointer; transition:transform .08s ease, background .15s ease;
+    margin-top:4px;
+  }
+  button:active{ transform:scale(.98); }
+  button:focus-visible{ outline:3px solid var(--blue); outline-offset:2px; }
+
+  .btn-rent{ background:var(--blue); color:#fff; }
+  .btn-rent:active{ background:#3462cc; }
+
+  .return-panel{ width:100%; }
+  .return-note{ font-size:13.5px; color:var(--ink-soft); margin-bottom:14px; line-height:1.5; }
+  .return-note b{ color:var(--ink); }
+  .btn-return{ background:var(--coral-pale); color:var(--coral); border:1.5px solid var(--coral); }
+  .btn-return:active{ background:#f6cec8; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="rain" aria-hidden="true">
+  <span style="left:8%; animation-duration:2.2s;"></span>
+  <span style="left:22%; animation-duration:3s; animation-delay:.6s;"></span>
+  <span style="left:37%; animation-duration:2.5s; animation-delay:1.2s;"></span>
+  <span style="left:55%; animation-duration:2.8s; animation-delay:.2s;"></span>
+  <span style="left:68%; animation-duration:2.3s; animation-delay:1.5s;"></span>
+  <span style="left:82%; animation-duration:3.1s; animation-delay:.8s;"></span>
+  <span style="left:93%; animation-duration:2.6s; animation-delay:.4s;"></span>
+</div>
+
+<main class="card">
+  <div class="eyebrow">Smart Locker · 청소시간 전용</div>
+  <h1 class="brand">양심우산</h1>
+
+  <div class="chip">
+    <span class="chip-dot" id="chipDot"></span>
+    <span id="umbrellaIdText">불러오는 중…</span>
+  </div>
+
+  <div class="canopy-stage">
+    <svg viewBox="0 0 150 120">
+      <g id="openGroup">
+        <path d="M15 62 A60 50 0 0 1 135 62 Q135 50 120 55 Q105 48 90 55 Q75 48 60 55 Q45 48 30 55 Q15 50 15 62 Z" fill="#3E6FE0"/>
+        <circle cx="75" cy="18" r="4" fill="#3E6FE0"/>
+        <line x1="75" y1="62" x2="75" y2="108" stroke="#5B6472" stroke-width="4" stroke-linecap="round"/>
+        <path d="M75 108 q10 0 10 -10" fill="none" stroke="#5B6472" stroke-width="4" stroke-linecap="round"/>
+        <circle class="drop" cx="30" cy="70" r="2.5" fill="#3E6FE0"/>
+        <circle class="drop" cx="75" cy="74" r="2.5" fill="#3E6FE0"/>
+        <circle class="drop" cx="118" cy="70" r="2.5" fill="#3E6FE0"/>
+      </g>
+      <g id="closedGroup">
+        <line x1="75" y1="14" x2="75" y2="100" stroke="#8A93A3" stroke-width="6" stroke-linecap="round"/>
+        <path d="M62 24 Q75 14 88 24 L88 74 Q75 80 62 74 Z" fill="#8A93A3"/>
+        <path d="M75 100 q10 0 10 -10" fill="none" stroke="#8A93A3" stroke-width="4" stroke-linecap="round"/>
+        <rect x="42" y="52" width="24" height="20" rx="4" fill="#E1503F"/>
+        <path d="M46 52 v-7 a8 8 0 0 1 16 0 v7" fill="none" stroke="#E1503F" stroke-width="4"/>
+        <circle cx="54" cy="62" r="2.5" fill="#fff"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="status-word" id="statusWord">상태 확인 중…</div>
+
+  <div id="msgBox" class="msg hidden"></div>
+
+  <form id="rentForm" class="hidden">
+    <div class="field">
+      <label for="studentId">학번</label>
+      <input type="text" id="studentId" placeholder="예 : 20509" required autocomplete="off" inputmode="numeric" maxlength="5">
+    </div>
+    <div class="field">
+      <label for="studentName">이름</label>
+      <input type="text" id="studentName" placeholder="예 : 김희정" required autocomplete="off">
+    </div>
+    <button type="submit" class="btn-rent">우산 꺼내기 (잠금 해제)</button>
+  </form>
+
+  <div id="returnPanel" class="return-panel hidden">
+    <p class="return-note">이 대여함은 현재 <b>대여중</b>이에요.<br>다 쓰셨다면 제자리에 넣고 아래 버튼을 눌러주세요.</p>
+    <button id="returnBtn" class="btn-return">우산 반납하기 (잠금)</button>
+  </div>
+</main>
+
+<script>
+  // 1. Firebase 설정값 입력
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "umbrella-e6536.firebaseapp.com",
+    databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "umbrella-e6536",
+    storageBucket: "umbrella-e6536.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // 2. URL 주소창에서 ?id=... 값 읽기
+  const urlParams = new URLSearchParams(window.location.search);
+  const umbrellaId = urlParams.get('id') || 'umbrella_01';
+  document.getElementById('umbrellaIdText').innerText = umbrellaId.toUpperCase();
+
+  const umbrellaRef = database.ref('umbrellas/' + umbrellaId);
+  const rentForm = document.getElementById('rentForm');
+  const returnPanel = document.getElementById('returnPanel');
+  const openGroup = document.getElementById('openGroup');
+  const closedGroup = document.getElementById('closedGroup');
+  const chipDot = document.getElementById('chipDot');
+  const statusWord = document.getElementById('statusWord');
+  const msgBox = document.getElementById('msgBox');
+
+  function showMsg(text, type){
+    msgBox.textContent = text;
+    msgBox.className = 'msg ' + type;
+    if(type === 'success'){
+      setTimeout(() => { msgBox.className = 'msg hidden'; }, 4000);
+    }
+  }
+
+  // 3. 실시간 상태 감지 → 화면 전환
+  umbrellaRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    if (data.status === 'rented') {
+      rentForm.classList.add('hidden');
+      returnPanel.classList.remove('hidden');
+      openGroup.classList.add('hide');
+      closedGroup.classList.remove('hide');
+      chipDot.classList.add('rented');
+      statusWord.textContent = '대여중';
+      statusWord.className = 'status-word rented';
+    } else {
+      rentForm.classList.remove('hidden');
+      returnPanel.classList.add('hidden');
+      openGroup.classList.remove('hide');
+      closedGroup.classList.add('hide');
+      chipDot.classList.remove('rented');
+      statusWord.textContent = '대여 가능';
+      statusWord.className = 'status-word available';
+    }
+  });
+
+  // 4. 대여 처리
+  rentForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    const id = document.getElementById('studentId').value.trim();
+    const name = document.getElementById('studentName').value.trim();
+
+    const idRegex = /^\d{5}$/;
+    if (!idRegex.test(id)) {
+      showMsg('학번은 숫자 5자리로 입력해주세요. (예: 20502)', 'error');
+      document.getElementById('studentId').focus();
+      return;
+    }
+
+    const koreanRegex = /^[가-힣]+$/;
+    if (!koreanRegex.test(name)) {
+      showMsg('이름은 한글로만 입력해주세요.', 'error');
+      document.getElementById('studentName').focus();
+      return;
+    }
+
+    umbrellaRef.transaction((currentData) => {
+      if (currentData === null) return currentData;
+      if (currentData.status === 'rented') return; // 취소
+      currentData.status = 'rented';
+      currentData.student_id = id;
+      currentData.student_name = name;
+      currentData.rented_at = new Date().toLocaleString();
+      return currentData;
+    }, (error, committed) => {
+      if (error) {
+        showMsg('오류가 발생했어요: ' + error.message, 'error');
+      } else if (!committed) {
+        showMsg('앗, 방금 다른 사람이 먼저 대여했어요!', 'error');
+      } else {
+        showMsg('대여 완료! 잠시 후 대여함이 열려요.', 'success');
+        document.getElementById('studentId').value = '';
+        document.getElementById('studentName').value = '';
+      }
+    });
+  });
+
+  // 5. 반납 처리
+  document.getElementById('returnBtn').addEventListener('click', function(){
+    umbrellaRef.update({
+      status: 'available',
+      student_id: '',
+      student_name: '',
+      rented_at: ''
+    }).then(() => {
+      showMsg('반납 완료! 대여함이 잠겼어요. 감사합니다 :)', 'success');
+    }).catch((error) => {
+      showMsg('반납 처리 중 오류: ' + error.message, 'error');
+    });
+  });
+</script>
+</body>
+</html>
