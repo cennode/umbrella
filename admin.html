@@ -1,126 +1,312 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>우산 대여 관리자 페이지</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <style>
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        .available { color: green; font-weight: bold; }
-        .rented { color: red; font-weight: bold; }
-        button { padding: 6px 12px; cursor: pointer; margin: 2px; }
-        .push-btn { background-color: #ff9800; color: white; border: none; border-radius: 4px; }
-        .push-btn:disabled { background-color: #ccc; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>양심우산 · 관제 대시보드</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF3F9;
+    --card:#FFFFFF;
+    --ink:#16233D;
+    --ink-soft:#5B6472;
+    --blue:#3E6FE0;
+    --navy:#16233D;
+    --green:#1E9A5A;
+    --green-pale:#E1F5EA;
+    --coral:#E1503F;
+    --coral-pale:#FBE4E1;
+    --orange:#FF9800;
+    --orange-pale:#FFF3E0;
+    --line:#DEE4EC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg);
+    font-family:'Noto Sans KR',sans-serif; color:var(--ink);
+  }
+
+  /* 헤더 레이아웃 */
+  header{
+    background:var(--navy); color:#fff; padding:26px 32px;
+    display:grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    position: relative;
+  }
+
+  header::before {
+    content: '';
+    display: block;
+  }
+
+  header .title-area{
+    grid-column: 2;
+    text-align: center;
+  }
+  header .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em;
+    color:#9FB4E8; text-transform:uppercase; margin-bottom:4px;
+  }
+  header h1{ font-family:'Jua',sans-serif; font-size:24px; margin:0; letter-spacing:-.3px; }
+
+  .live{
+    grid-column: 3;
+    justify-self: end;
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:#C7D4F0;
+  }
+  .live .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  @media (prefers-reduced-motion: reduce){ .live .dot{ animation:none; } }
+
+  @media (max-width: 600px) {
+    header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    header::before { display: none; }
+    .live { justify-self: center; }
+  }
+
+  main{ max-width:960px; margin:0 auto; padding:28px 24px 60px; }
+
+  .stats{ display:flex; gap:14px; margin-bottom:24px; flex-wrap:wrap; }
+  .stat{
+    flex:1; min-width:140px; background:var(--card); border-radius:16px;
+    padding:16px 20px; border:1px solid var(--line);
+  }
+  .stat .num{ font-family:'JetBrains Mono',monospace; font-size:26px; font-weight:700; }
+  .stat .label{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .stat.total .num{ color:var(--ink); }
+  .stat.avail .num{ color:var(--green); }
+  .stat.rented .num{ color:var(--coral); }
+
+  .table-wrap{
+    background:var(--card); border-radius:20px; border:1px solid var(--line);
+    overflow-x:auto; box-shadow:0 20px 50px -30px rgba(22,35,61,.2);
+  }
+  table{ width:100%; border-collapse:collapse; min-width:640px; }
+  th{
+    text-align:left; font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink-soft); font-weight:700; padding:16px 18px; border-bottom:1px solid var(--line);
+  }
+  td{ padding:14px 18px; border-bottom:1px solid var(--line); font-size:14.5px; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:#F7FAFD; }
+
+  .id-cell{ font-family:'JetBrains Mono',monospace; font-weight:700; }
+  .mono{ font-family:'JetBrains Mono',monospace; color:var(--ink-soft); font-size:13.5px; }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12.5px; font-weight:700; padding:5px 12px; border-radius:100px;
+  }
+  .pill.avail{ background:var(--green-pale); color:var(--green); }
+  .pill.rented{ background:var(--coral-pale); color:var(--coral); }
+  .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
+
+  /* 조작 버튼 감싸는 컨테이너 */
+  .btn-group {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* 공통 버튼 베이스 */
+  .action-btn {
+    font-family:'Noto Sans KR',sans-serif; font-size:13.5px; font-weight:700;
+    padding:8px 16px; border-radius:10px; cursor:pointer;
+    transition:transform .08s ease;
+  }
+  .action-btn:active{ transform:scale(.96); }
+  .action-btn:disabled{
+    border-color:var(--line) !important; background:#F2F4F7 !important; color:#B7BEC9 !important; cursor:default;
+  }
+
+  /* 반납 완료 버튼 스타일 */
+  .return-btn{
+    border:1.5px solid var(--coral); background:var(--coral-pale); color:var(--coral);
+  }
+
+  /* [추가] 반납 독촉 웹 푸시 버튼 스타일 */
+  .push-btn{
+    border:1.5px solid var(--orange); background:var(--orange-pale); color:var(--orange);
+  }
+
+  .empty-row td{ text-align:center; color:var(--ink-soft); padding:32px; }
+</style>
 </head>
 <body>
-    <h2>📋 스마트 우산 대여 현황 (관리자 페이지)</h2>
+
+<header>
+  <div class="title-area">
+    <div class="eyebrow">Smart Locker · Admin</div>
+    <h1>양심우산 관제 대시보드</h1>
+  </div>
+  <div class="live"><span class="dot"></span>실시간 연결됨</div>
+</header>
+
+<main>
+  <div class="stats">
+    <div class="stat total"><div class="num" id="statTotal">0</div><div class="label">전체 우산</div></div>
+    <div class="stat avail"><div class="num" id="statAvail">0</div><div class="label">대여 가능</div></div>
+    <div class="stat rented"><div class="num" id="statRented">0</div><div class="label">대여중 (미반납 포함)</div></div>
+  </div>
+
+  <div class="table-wrap">
     <table>
-        <thead>
-            <tr>
-                <th>우산 ID</th>
-                <th>상태</th>
-                <th>학번</th>
-                <th>이름</th>
-                <th>대여 시간</th>
-                <th>조작</th>
-            </tr>
-        </thead>
-        <tbody id="umbrella-list"></tbody>
+      <thead>
+        <tr>
+          <th>우산 ID</th>
+          <th>상태</th>
+          <th>학번</th>
+          <th>이름</th>
+          <th>대여 시간</th>
+          <th>조작</th>
+        </tr>
+      </thead>
+      <tbody id="umbrellaList">
+        <tr class="empty-row"><td colspan="6">데이터를 불러오는 중…</td></tr>
+      </tbody>
     </table>
+  </div>
+</main>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY", // ◀ 여기에 들어가는 API Key가 중요합니다.
-            authDomain: "umbrella-e6536.firebaseapp.com",
-            databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "umbrella-e6536"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+<script>
+  // 1. 파이어베이스 인증 정보 설정
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY", // ◀ 여기에 들어가는 API Key 확인
+    authDomain: "umbrella-e6536.firebaseapp.com",
+    databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "umbrella-e6536"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
 
-        database.ref('umbrellas').on('value', (snapshot) => {
-            const data = snapshot.val();
-            const tbody = document.getElementById('umbrella-list');
-            tbody.innerHTML = ''; 
+  // 2. 실시간 데이터 스트리밍 수신 및 렌더링
+  database.ref('umbrellas').on('value', (snapshot) => {
+    const data = snapshot.val();
+    const tbody = document.getElementById('umbrellaList');
+    tbody.innerHTML = '';
 
-            for (let id in data) {
-                const item = data[id];
-                const statusText = item.status === 'rented' ? '대여중' : '대여가능';
-                const statusClass = item.status === 'rented' ? 'rented' : 'available';
-                const isRented = item.status === 'rented';
+    if (!data) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">등록된 우산이 없습니다.</td></tr>';
+      updateStats(0, 0);
+      return;
+    }
 
-                const row = `
-                    <tr>
-                        <td>${id}</td>
-                        <td class="${statusClass}">${statusText}</td>
-                        <td>${item.student_id || '-'}</td>
-                        <td>${item.student_name || '-'}</td>
-                        <td>${item.rented_at || '-'}</td>
-                        <td>
-                            <button onclick="returnUmbrella('${id}')" ${!isRented ? 'disabled' : ''}>반납 완료</button>
-                            <button class="push-btn" onclick="sendWebPush('${id}', '${item.student_token}', '${item.student_name}')" ${!isRented || !item.student_token ? 'disabled' : ''}>🚨 반납 독촉</button>
-                        </td>
-                    </tr>
-                `;
-                tbody.innerHTML += row;
-            }
+    let rentedCount = 0;
+    const ids = Object.keys(data).sort();
+
+    ids.forEach((id) => {
+      const item = data[id];
+      const isRented = item.status === 'rented';
+      if (isRented) rentedCount++;
+
+      // 대여중이고 디바이스 토큰이 수집되었을 때만 푸시 버튼 활성화
+      const hasToken = item.student_token ? true : false;
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td class="id-cell">${id.toUpperCase()}</td>
+        <td><span class="pill ${isRented ? 'rented' : 'avail'}">${isRented ? '대여중' : '대여가능'}</span></td>
+        <td class="mono">${item.student_id || '-'}</td>
+        <td>${item.student_name || '-'}</td>
+        <td class="mono">${item.rented_at || '-'}</td>
+        <td>
+          <div class="btn-group">
+            <button class="action-btn return-btn" data-id="${id}" ${isRented ? '' : 'disabled'}>반납 완료</button>
+            <button class="action-btn push-btn" data-id="${id}" data-token="${item.student_token || ''}" data-name="${item.student_name || ''}" ${isRented && hasToken ? '' : 'disabled'}>🚨 반납 독촉</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+
+    updateStats(ids.length, rentedCount);
+  });
+
+  // 상단 스탯 대시보드 수치 업데이트
+  function updateStats(total, rented){
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statAvail').textContent = total - rented;
+    document.getElementById('statRented').textContent = rented;
+  }
+
+  // 3. 버튼 클릭 이벤트 리스너 (이벤트 위임 방식 반영)
+  document.getElementById('umbrellaList').addEventListener('click', function(e){
+    // A. 반납 완료 버튼 클릭 시
+    const returnBtn = e.target.closest('.return-btn');
+    if (returnBtn && !returnBtn.disabled) {
+      const id = returnBtn.dataset.id;
+      if (confirm(`${id.toUpperCase()} 우산을 반납 처리하시겠습니까?`)) {
+        database.ref('umbrellas/' + id).update({
+          status: 'available',
+          student_id: '',
+          student_name: '',
+          rented_at: '',
+          student_token: '' // 토큰 정보도 함께 깨끗이 비워줍니다.
+        }).then(() => {
+          alert('반납 처리가 완료되어 우산이 잠겼습니다.');
         });
+      }
+      return;
+    }
 
-        // 반납 처리
-        function returnUmbrella(id) {
-            if(confirm(`${id} 우산을 반납 처리하시겠습니까?`)) {
-                database.ref('umbrellas/' + id).update({
-                    status: "available",
-                    student_id: "",
-                    student_name: "",
-                    rented_at: "",
-                    student_token: ""
-                }).then(() => alert("반납 완료"));
-            }
-        }
+    // B. [추가] 🚨 반납 독촉 웹 푸시 버튼 클릭 시
+    const pushBtn = e.target.closest('.push-btn');
+    if (pushBtn && !pushBtn.disabled) {
+      const id = pushBtn.dataset.id;
+      const token = pushBtn.dataset.token;
+      const name = pushBtn.dataset.name;
+      
+      sendWebPush(id, token, name);
+    }
+  });
 
-        // 🔍 [정석 웹 푸시 전송 기능] 구글 FCM 서버로 메시지 요청 쏘기
-        function sendWebPush(umbrellaId, token, studentName) {
-            if (!token || token === 'undefined') {
-                alert("해당 기기의 알림 토큰 주소가 없습니다.");
-                return;
-            }
+  // 4. 구글 FCM 서버로 레거시 HTTP 프로토콜 웹 푸시 명령 쏘기 함수
+  function sendWebPush(umbrellaId, token, studentName) {
+    if (!token || token === 'undefined') {
+      alert("해당 기기의 알림 토큰 주소가 수집되지 않았습니다.");
+      return;
+    }
 
-            // 구글 FCM 서버 주소 (레거시 방식 HTTP 프로토콜)
-            const fcmServerUrl = "https://fcm.googleapis.com/fcm/send";
-            
-            // ⚠️ 해커톤 꿀팁: Firebase Console -> 프로젝트 설정 -> 클라우드 메시징 메뉴에 있는 
-            // '서버 키(Server Key)'를 'key=' 뒤에 정확히 넣어야 권한 인증이 됩니다.
-            const serverKey = "YOUR_FIREBASE_SERVER_KEY"; 
+    const fcmServerUrl = "https://fcm.googleapis.com/fcm/send";
+    
+    // ⚠️ Firebase Console -> 프로젝트 설정 -> 클라우드 메시징 메뉴에 있는 '서버 키(Server Key)'를 입력하세요.
+    const serverKey = "YOUR_FIREBASE_SERVER_KEY"; 
 
-            const messageBody = {
-                to: token,
-                notification: {
-                    title: "☂️ [양심우산 반납 요청]",
-                    body: `${studentName}님, 대여하신 ${umbrellaId} 청소 시간 마감 전까지 대여함으로 반납 부탁드립니다!`,
-                    click_action: "https://cennode.github.io/umbrella/"
-                }
-            };
+    const messageBody = {
+      to: token,
+      notification: {
+        title: "☂️ [양심우산 반납 요청]",
+        body: `${studentName}님, 대여하신 ${umbrellaId.toUpperCase()} 청소 시간 마감 전까지 대여함으로 반납 부탁드립니다!`,
+        click_action: "https://cennode.github.io/umbrella/"
+      }
+    };
 
-            fetch(fcmServerUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'key=' + serverKey
-                },
-                body: JSON.stringify(messageBody)
-            })
-            .then(res => {
-                alert(`${studentName} 학생 스마트폰 브라우저로 실시간 웹 푸시 알림을 발송했습니다!`);
-            })
-            .catch(err => {
-                alert("푸시 발송 실패: " + err.message);
-            });
-        }
-    </script>
+    fetch(fcmServerUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'key=' + serverKey
+      },
+      body: JSON.stringify(messageBody)
+    })
+    .then(res => {
+      alert(`${studentName} 학생 스마트폰 브라우저로 실시간 웹 푸시 알림을 발송했습니다!`);
+    })
+    .catch(err => {
+      alert("푸시 발송 실패: " + err.message);
+    });
+  }
+</script>
 </body>
 </html>
