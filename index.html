@@ -51,6 +51,7 @@
   .field input::placeholder{ color:#A8B0BD; font-family:'Noto Sans KR',sans-serif; }
   button{ width:100%; height:52px; border:none; border-radius:14px; font-family:'Noto Sans KR',sans-serif; font-size:16px; font-weight:700; cursor:pointer; transition:transform .08s ease, background .15s ease; margin-top:4px; }
   button:active{ transform:scale(.98); }
+  button:disabled{ background:#B7BEC9; color:#fff; cursor:not-allowed; transform:none; }
   button:focus-visible{ outline:3px solid var(--blue); outline-offset:2px; }
   .btn-rent{ background:var(--blue); color:#fff; }
   .btn-rent:active{ background:#3462cc; }
@@ -118,7 +119,7 @@
       <label for="studentName">이름</label>
       <input type="text" id="studentName" placeholder="예 : 김희정" required autocomplete="off">
     </div>
-    <button type="submit" class="btn-rent">우산 꺼내기 (잠금 해제)</button>
+    <button type="submit" id="rentSubmitBtn" class="btn-rent" disabled>푸시 알림 보안 연결 중…</button>
   </form>
 
   <div id="returnPanel" class="return-panel hidden">
@@ -128,28 +129,28 @@
 </main>
 
 <script>
-  // 1. Firebase 설정값 입력
-const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "umbrella-e6536.firebaseapp.com",
-    databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "umbrella-e6536",
-    storageBucket: "umbrella-e6536.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  const firebaseConfig = {
+  apiKey: "AIzaSyC_jt0uVlyqctfNlcY5YAgr8jKEHIAQeak",
+  authDomain: "umbrella-e6536.firebaseapp.com",
+  databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "umbrella-e6536",
+  storageBucket: "umbrella-e6536.firebasestorage.app",
+  messagingSenderId: "603025911927",
+  appId: "1:603025911927:web:a766e9e53089097cf11672",
+  measurementId: "G-0R09Q6SP56"
 };
   
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
   const messaging = firebase.messaging();
 
-  // 2. URL 주소창에서 ?id=... 값 읽기
   const urlParams = new URLSearchParams(window.location.search);
   const umbrellaId = urlParams.get('id') || 'umbrella_01';
   document.getElementById('umbrellaIdText').innerText = umbrellaId.toUpperCase();
 
   const umbrellaRef = database.ref('umbrellas/' + umbrellaId);
   const rentForm = document.getElementById('rentForm');
+  const rentSubmitBtn = document.getElementById('rentSubmitBtn');
   const returnPanel = document.getElementById('returnPanel');
   const openGroup = document.getElementById('openGroup');
   const closedGroup = document.getElementById('closedGroup');
@@ -159,29 +160,30 @@ const firebaseConfig = {
   
   let currentDeviceToken = "";
 
-  // 🛡️ [개선 핵심] 서비스 워커 명시적 등록 후 푸시 권한 및 토큰 요청 처리
+  // 🛡️ 서비스 워커 등록 및 토큰 동기화 차단 제어
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('firebase-messaging-sw.js')
       .then((registration) => {
-        console.log("서비스 워커 등록 완료:", registration.scope);
-        // 파이어베이스 메시징 객체에 서비스 워커 연결
         messaging.useServiceWorker(registration);
-        
-        // 서비스 워커 로드가 확실히 끝난 뒤 권한 및 토큰 팝업 유도
         return messaging.requestPermission();
       })
       .then(() => {
-        console.log("알림 권한 획득 성공!");
         return messaging.getToken({ 
           vapidKey: "BMQJRKgNuEp8Qrfsnvq6Lk2qxnu4tNvFg7-C1GyXDAaIP5abLp6zxyYJ-3pazkQdHgcX1EHUWoeVi-sM7go7__I" 
         });
       })
       .then((token) => {
         currentDeviceToken = token;
-        console.log("FCM 토큰 획득 완료:", token);
+        console.log("토큰 수집 최종 완료:", token);
+        // 토큰 수집이 끝나면 비소로 버튼을 해제하고 원래 텍스트로 복구합니다.
+        rentSubmitBtn.disabled = false;
+        rentSubmitBtn.innerText = "우산 꺼내기 (잠금 해제)";
       })
       .catch((err) => {
-        console.log("FCM 초기화 또는 권한 팝업 실패:", err);
+        console.log("FCM 설정 실패:", err);
+        rentSubmitBtn.disabled = false;
+        rentSubmitBtn.innerText = "우산 꺼내기 (알림 없이 진행)";
+        showMsg("알림 기능에 문제가 있습니다. 대여는 가능합니다.", "error");
       });
   }
 
@@ -193,7 +195,6 @@ const firebaseConfig = {
     }
   }
 
-  // 3. 실시간 상태 감지 → 화면 전환
   umbrellaRef.on('value', (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
@@ -217,23 +218,17 @@ const firebaseConfig = {
     }
   });
 
-  // 4. 대여 처리
   rentForm.addEventListener('submit', function(e){
     e.preventDefault();
     const id = document.getElementById('studentId').value.trim();
     const name = document.getElementById('studentName').value.trim();
 
-    const idRegex = /^\d{5}$/;
-    if (!idRegex.test(id)) {
-      showMsg('학번은 숫자 5자리로 입력해주세요. (예: 20502)', 'error');
-      document.getElementById('studentId').focus();
+    if (!/^\d{5}$/.test(id)) {
+      showMsg('학번은 숫자 5자리로 입력해주세요.', 'error');
       return;
     }
-
-    const koreanRegex = /^[가-힣]+$/;
-    if (!koreanRegex.test(name)) {
+    if (!/^[가-힣]+$/.test(name)) {
       showMsg('이름은 한글로만 입력해주세요.', 'error');
-      document.getElementById('studentName').focus();
       return;
     }
 
@@ -244,33 +239,24 @@ const firebaseConfig = {
       currentData.student_id = id;
       currentData.student_name = name;
       currentData.rented_at = new Date().toLocaleString();
-      currentData.student_token = currentDeviceToken; // 기기 토큰 함께 적재
+      currentData.student_token = currentDeviceToken; // 🎯 이제 무조건 확보된 토큰이 들어갑니다.
       return currentData;
     }, (error, committed) => {
       if (error) {
-        showMsg('오류가 발생했어요: ' + error.message, 'error');
+        showMsg('오류: ' + error.message, 'error');
       } else if (!committed) {
-        showMsg('앗, 방금 다른 사람이 먼저 대여했어요!', 'error');
+        showMsg('앗, 누군가 먼저 대여했습니다!', 'error');
       } else {
         showMsg('대여 완료! 잠시 후 대여함이 열려요.', 'success');
-        document.getElementById('studentId').value = '';
-        document.getElementById('studentName').value = '';
       }
     });
   });
 
-  // 5. 반납 처리
   document.getElementById('returnBtn').addEventListener('click', function(){
     umbrellaRef.update({
-      status: 'available',
-      student_id: '',
-      student_name: '',
-      rented_at: '',
-      student_token: ''
+      status: 'available', student_id: '', student_name: '', rented_at: '', student_token: ''
     }).then(() => {
-      showMsg('반납 완료! 대여함이 잠겼어요. 감사합니다 :)', 'success');
-    }).catch((error) => {
-      showMsg('반납 처리 중 오류: ' + error.message, 'error');
+      showMsg('반납 완료! 대여함이 잠겼어요.', 'success');
     });
   });
 </script>
