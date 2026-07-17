@@ -46,8 +46,7 @@
   .pill.avail{ background:var(--green-pale); color:var(--green); }
   .pill.rented{ background:var(--coral-pale); color:var(--coral); }
   .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
-  
-  /* 공통 테이블 버튼 액션 스타일 크기 통합 */
+   
   .action-btn {
     font-family:'Noto Sans KR',sans-serif; font-size:13.5px; font-weight:700;
     padding:8px 14px; border-radius:10px; cursor:pointer; transition:transform .08s ease; margin-right:4px;
@@ -124,7 +123,6 @@
     ids.forEach((id) => {
       const item = data[id];
       const isRented = item.status === 'rented';
-      const hasToken = !!item.student_token;
       if (isRented) rentedCount++;
 
       const row = document.createElement('tr');
@@ -136,7 +134,7 @@
         <td class="mono">${item.rented_at || '-'}</td>
         <td>
             <button class="action-btn return-btn" data-id="${id}" ${isRented ? '' : 'disabled'}>반납 완료</button>
-            <button class="action-btn push-btn" data-id="${id}" data-token="${item.student_token || ''}" data-name="${item.student_name || ''}" ${isRented && hasToken ? '' : 'disabled'}>🚨 독촉</button>
+            <button class="action-btn push-btn" data-id="${id}" data-token="${item.student_token || ''}" data-name="${item.student_name || ''}" ${isRented ? '' : 'disabled'}>🚨 독촉</button>
         </td>
       `;
       tbody.appendChild(row);
@@ -151,7 +149,7 @@
     document.getElementById('statRented').textContent = rented;
   }
 
-  // 조작 이벤트 바인딩 (반납 & 푸시 분기 처리)
+  // 조작 이벤트 바인딩
   document.getElementById('umbrellaList').addEventListener('click', function(e){
     const target = e.target;
     if (!target.classList.contains('action-btn') || target.disabled) return;
@@ -172,25 +170,51 @@
       const token = target.dataset.token;
       const name = target.dataset.name;
       
-      const fcmServerUrl = "https://fcm.googleapis.com/fcm/send";
-      const serverKey = "YOUR_FIREBASE_SERVER_KEY"; // 클라우드 메시징 서버키 입력
+      // 🛡️ 예외 처리: 만약 기기 주소(토큰)가 없거나 잘못 불러왔을 때 즉시 모달 피드백 제공
+      if (!token || token.trim() === "" || token === "undefined") {
+        alert(`⚠️ ${name} 학생의 브라우저에서 알림 토큰을 수집하지 못했습니다.\n\n[해결 방법]\n1. 학생 화면(index.html) 접속 시 '알림 허용'을 꼭 눌러야 합니다.\n2. 일반 파일 실행(file:///)이 아닌 HTTPS 주소나 localhost 환경에서 대여했는지 확인하세요.`);
+        return;
+      }
+      
+      // 🔒 FCM HTTP v1 최신 규격 주소 및 인증 데이터 구성
+      const projectId = "umbrella-e6536"; 
+      const fcmServerUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+      const accessToken = "YOUR_OAUTH2_ACCESS_TOKEN"; // 👈 [중요] GCP에서 발급한 OAuth2 액세스 토큰 필요
 
       const messageBody = {
-          to: token,
-          notification: {
-              title: "☂️ [양심우산 반납 요청]",
-              body: `${name}님, 대여하신 ${id.toUpperCase()} 우산을 청소 마감 전까지 꼭 반납해주세요!`,
-              click_action: "https://cennode.github.io/umbrella/"
+        "message": {
+          "token": token,
+          "notification": {
+            "title": "☂️ [양심우산 반납 요청]",
+            "body": `${name}님, 대여하신 ${id.toUpperCase()} 우산을 마감 전까지 제자리에 꼭 반납해주세요!`
+          },
+          "webpush": {
+            "fcm_options": {
+              "link": "https://cennode.github.io/umbrella/"
+            }
           }
+        }
       };
 
       fetch(fcmServerUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'key=' + serverKey },
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': 'Bearer ' + accessToken 
+          },
           body: JSON.stringify(messageBody)
       })
-      .then(() => alert(`${name} 학생 스마트폰으로 웹 푸시 알림을 성공적으로 보냈습니다!`))
-      .catch(err => alert("푸시 발송 실패: " + err.message));
+      .then(async (res) => {
+        if(!res.ok) {
+          const errData = await res.json();
+          throw new Error(JSON.stringify(errData));
+        }
+        alert(`${name} 학생에게 웹 푸시 독촉 알림을 전송했습니다!`);
+      })
+      .catch(err => {
+        console.error(err);
+        alert("푸시 전송 오류가 발생했습니다. 콘솔 창(F12)을 확인해 주세요.");
+      });
     }
   });
 </script>
