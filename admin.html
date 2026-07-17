@@ -20,12 +20,10 @@
   header{ background:var(--navy); color:#fff; padding:26px 32px; display:grid; grid-template-columns: 1fr auto 1fr; align-items: center; position: relative; }
   header::before { content: ''; display: block; }
   header .title-area{ grid-column: 2; text-align: center; }
-  header .eyebrow{ font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em; color:#9FB4E8; text-transform:uppercase; margin-bottom:4px; }
-  header h1{ font-family:'Jua',sans-serif; font-size:24px; margin:0; letter-spacing:-.3px; }
+  header h1{ font-family:'Jua',sans-serif; font-size:24px; margin:0; }
   .live{ grid-column: 3; justify-self: end; display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:12px; color:#C7D4F0; }
   .live .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.6s ease-in-out infinite; }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  @media (max-width: 600px) { header { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; } header::before { display: none; } .live { justify-self: center; } }
   main{ max-width:960px; margin:0 auto; padding:28px 24px 60px; }
   .stats{ display:flex; gap:14px; margin-bottom:24px; flex-wrap:wrap; }
   .stat{ flex:1; min-width:140px; background:var(--card); border-radius:16px; padding:16px 20px; border:1px solid var(--line); }
@@ -34,47 +32,39 @@
   .stat.total .num{ color:var(--ink); }
   .stat.avail .num{ color:var(--green); }
   .stat.rented .num{ color:var(--coral); }
-  .table-wrap{ background:var(--card); border-radius:20px; border:1px solid var(--line); overflow-x:auto; box-shadow:0 20px 50px -30px rgba(22,35,61,.2); }
+  .table-wrap{ background:var(--card); border-radius:20px; border:1px solid var(--line); overflow-x:auto; }
   table{ width:100%; border-collapse:collapse; min-width:640px; }
-  th{ text-align:left; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); font-weight:700; padding:16px 18px; border-bottom:1px solid var(--line); }
+  th{ text-align:left; font-size:12px; color:var(--ink-soft); font-weight:700; padding:16px 18px; border-bottom:1px solid var(--line); }
   td{ padding:14px 18px; border-bottom:1px solid var(--line); font-size:14.5px; }
-  tbody tr:last-child td{ border-bottom:none; }
-  tbody tr:hover{ background:#F7FAFD; }
-  .id-cell{ font-family:'JetBrains Mono',monospace; font-weight:700; }
-  .mono{ font-family:'JetBrains Mono',monospace; color:var(--ink-soft); font-size:13.5px; }
   .pill{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; padding:5px 12px; border-radius:100px; }
   .pill.avail{ background:var(--green-pale); color:var(--green); }
   .pill.rented{ background:var(--coral-pale); color:var(--coral); }
   .pill::before{ content:''; width:6px; height:6px; border-radius:50%; background:currentColor; }
-   
-  .action-btn {
-    font-family:'Noto Sans KR',sans-serif; font-size:13.5px; font-weight:700;
-    padding:8px 14px; border-radius:10px; cursor:pointer; transition:transform .08s ease; margin-right:4px;
-  }
-  .action-btn:active{ transform:scale(.96); }
+  .action-btn { font-family:'Noto Sans KR',sans-serif; font-size:13.5px; font-weight:700; padding:8px 14px; border-radius:10px; cursor:pointer; }
   .return-btn{ border:1.5px solid var(--coral); background:var(--coral-pale); color:var(--coral); }
-  .return-btn:disabled{ border-color:var(--line); background:#F2F4F7; color:#B7BEC9; cursor:default; }
   .push-btn { border:1.5px solid var(--orange); background:var(--orange-pale); color:var(--orange); }
-  .push-btn:disabled { border-color:var(--line); background:#F2F4F7; color:#B7BEC9; cursor:default; }
-
-  .empty-row td{ text-align:center; color:var(--ink-soft); padding:32px; }
+  .push-btn:disabled, .return-btn:disabled { border-color:var(--line); background:#F2F4F7; color:#B7BEC9; cursor:default; }
 </style>
 </head>
 <body>
 
 <header>
   <div class="title-area">
-    <div class="eyebrow">Smart Locker · Admin</div>
     <h1>양심우산 관제 대시보드</h1>
   </div>
   <div class="live"><span class="dot"></span>실시간 연결됨</div>
 </header>
 
 <main>
+  <div style="background:#fff; padding:16px; border-radius:16px; margin-bottom:20px; border:1px solid var(--line);">
+    <label style="font-weight:bold; font-size:14px; color:var(--ink-soft)">🔑 OAuth2 Access Token (시연용 임시 토큰 입력):</label>
+    <input type="text" id="gcpToken" placeholder="GCP Playground에서 발급받은 Bearer 토큰 문자열을 붙여넣으세요" style="width:100%; height:40px; margin-top:6px; padding:0 12px; border-radius:8px; border:1px solid var(--line);">
+  </div>
+
   <div class="stats">
     <div class="stat total"><div class="num" id="statTotal">0</div><div class="label">전체 우산</div></div>
     <div class="stat avail"><div class="num" id="statAvail">0</div><div class="label">대여 가능</div></div>
-    <div class="stat rented"><div class="num" id="statRented">0</div><div class="label">대여중 (미반납 포함)</div></div>
+    <div class="stat rented"><div class="num" id="statRented">0</div><div class="label">대여중</div></div>
   </div>
 
   <div class="table-wrap">
@@ -97,15 +87,18 @@
 </main>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "umbrella-e6536.firebaseapp.com",
-    databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "umbrella-e6536",
-    storageBucket: "umbrella-e6536.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  // 1. 설정값 동기화 필수
+const firebaseConfig = {
+  apiKey: "AIzaSyC_jt0uVlyqctfNlcY5YAgr8jKEHIAQeak",
+  authDomain: "umbrella-e6536.firebaseapp.com",
+  databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "umbrella-e6536",
+  storageBucket: "umbrella-e6536.firebasestorage.app",
+  messagingSenderId: "603025911927",
+  appId: "1:603025911927:web:a766e9e53089097cf11672",
+  measurementId: "G-0R09Q6SP56"
 };
+  
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
 
@@ -114,11 +107,7 @@
     const tbody = document.getElementById('umbrellaList');
     tbody.innerHTML = '';
 
-    if (!data) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">등록된 우산이 없습니다.</td></tr>';
-      updateStats(0, 0);
-      return;
-    }
+    if (!data) return;
 
     let rentedCount = 0;
     const ids = Object.keys(data).sort();
@@ -130,11 +119,11 @@
 
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td class="id-cell">${id.toUpperCase()}</td>
+        <td>${id.toUpperCase()}</td>
         <td><span class="pill ${isRented ? 'rented' : 'avail'}">${isRented ? '대여중' : '대여가능'}</span></td>
-        <td class="mono">${item.student_id || '-'}</td>
+        <td>${item.student_id || '-'}</td>
         <td>${item.student_name || '-'}</td>
-        <td class="mono">${item.rented_at || '-'}</td>
+        <td>${item.rented_at || '-'}</td>
         <td>
             <button class="action-btn return-btn" data-id="${id}" ${isRented ? '' : 'disabled'}>반납 완료</button>
             <button class="action-btn push-btn" data-id="${id}" data-token="${item.student_token || ''}" data-name="${item.student_name || ''}" ${isRented ? '' : 'disabled'}>🚨 독촉</button>
@@ -143,80 +132,63 @@
       tbody.appendChild(row);
     });
 
-    updateStats(ids.length, rentedCount);
+    document.getElementById('statTotal').textContent = ids.length;
+    document.getElementById('statAvail').textContent = ids.length - rentedCount;
+    document.getElementById('statRented').textContent = rentedCount;
   });
 
-  function updateStats(total, rented){
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statAvail').textContent = total - rented;
-    document.getElementById('statRented').textContent = rented;
-  }
-
-  // 조작 이벤트 바인딩
   document.getElementById('umbrellaList').addEventListener('click', function(e){
     const target = e.target;
     if (!target.classList.contains('action-btn') || target.disabled) return;
     
     const id = target.dataset.id;
 
-    // 1. 반납 완료 처리
     if (target.classList.contains('return-btn')) {
-      if (confirm(`${id.toUpperCase()} 우산을 반납 처리하시겠습니까?`)) {
+      if (confirm('반납 처리하시겠습니까?')) {
         database.ref('umbrellas/' + id).update({
           status: 'available', student_id: '', student_name: '', rented_at: '', student_token: ''
-        }).then(() => alert('반납 처리가 완료되었습니다.'));
+        });
       }
     }
     
-    // 2. FCM 웹 푸시 독촉 알림 발송
     if (target.classList.contains('push-btn')) {
       const token = target.dataset.token;
       const name = target.dataset.name;
+      const accessToken = document.getElementById('gcpToken').value.trim();
       
-      // 🛡️ 예외 처리: 만약 기기 주소(토큰)가 없거나 잘못 불러왔을 때 즉시 모달 피드백 제공
-      if (!token || token.trim() === "" || token === "undefined") {
-        alert(`⚠️ ${name} 학생의 브라우저에서 알림 토큰을 수집하지 못했습니다.\n\n[해결 방법]\n1. 학생 화면(index.html) 접속 시 '알림 허용'을 꼭 눌러야 합니다.\n2. 일반 파일 실행(file:///)이 아닌 HTTPS 주소나 localhost 환경에서 대여했는지 확인하세요.`);
+      if (!token) {
+        alert("⚠️ DB에 저장된 토큰이 없습니다. 다시 새로고침하여 대여 프로세스를 시도하세요.");
+        return;
+      }
+      if (!accessToken) {
+        alert("🔑 대시보드 상단 필드에 OAuth2 임시 토큰을 입력해야 푸시 전송이 승인됩니다.");
         return;
       }
       
-      // 🔒 FCM HTTP v1 최신 규격 주소 및 인증 데이터 구성
-      const projectId = "umbrella-e6536"; 
-      const fcmServerUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-      const accessToken = "YOUR_OAUTH2_ACCESS_TOKEN"; // 👈 [중요] GCP에서 발급한 OAuth2 액세스 토큰 필요
-
+      const fcmServerUrl = `https://fcm.googleapis.com/v1/projects/umbrella-e6536/messages:send`;
       const messageBody = {
         "message": {
           "token": token,
           "notification": {
             "title": "☂️ [양심우산 반납 요청]",
-            "body": `${name}님, 대여하신 ${id.toUpperCase()} 우산을 마감 전까지 제자리에 꼭 반납해주세요!`
+            "body": `${name}님, 대여하신 ${id.toUpperCase()} 우산을 제자리에 꼭 반납해주세요!`
           },
-          "webpush": {
-            "fcm_options": {
-              "link": "https://cennode.github.io/umbrella/"
-            }
-          }
+          "webpush": { "fcm_options": { "link": "https://cennode.github.io/umbrella/" } }
         }
       };
 
       fetch(fcmServerUrl, {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': 'Bearer ' + accessToken 
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + accessToken },
           body: JSON.stringify(messageBody)
       })
       .then(async (res) => {
-        if(!res.ok) {
-          const errData = await res.json();
-          throw new Error(JSON.stringify(errData));
-        }
-        alert(`${name} 학생에게 웹 푸시 독촉 알림을 전송했습니다!`);
+        if(!res.ok) throw new Error(await res.text());
+        alert("푸시 전송 성공!");
       })
       .catch(err => {
         console.error(err);
-        alert("푸시 전송 오류가 발생했습니다. 콘솔 창(F12)을 확인해 주세요.");
+        alert("오류 발생: 콘솔(F12)을 확인하세요.");
       });
     }
   });
