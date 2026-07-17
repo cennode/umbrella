@@ -1,144 +1,245 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스마트 양심우산 대여</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>양심우산 · 대여 및 반납</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-messaging.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF3F9;
+    --card:#FFFFFF;
+    --ink:#16233D;
+    --ink-soft:#5B6472;
+    --blue:#3E6FE0;
+    --navy:#16233D;
+    --green:#1E9A5A;
+    --green-pale:#E1F5EA;
+    --coral:#E1503F;
+    --coral-pale:#FBE4E1;
+    --line:#DEE4EC;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg);
+    font-family:'Noto Sans KR',sans-serif; color:var(--ink);
+    display: flex;
+    flex-direction: column;
+  }
 
-    <style>
-        body {
-            margin: 0; padding: 0; background-color: #cccccc;
-            font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-            display: flex; justify-content: center; align-items: center; min-height: 100vh;
-        }
-        .container {
-            width: 90%; max-width: 440px; background-color: #ffffff;
-            border-radius: 40px; padding: 40px 30px; box-sizing: border-box;
-            display: flex; flex-direction: column; align-items: center;
-            min-height: 380px; justify-content: center;
-        }
-        .title { font-size: 16px; color: #666666; margin-bottom: 5px; font-weight: bold; letter-spacing: -0.5px; }
-        .umbrella-info { font-size: 11px; color: #0000ff; margin-bottom: 25px; text-align: center; }
-        form { width: 100%; }
-        .input-group { display: flex; align-items: center; margin-bottom: 25px; width: 100%; }
-        .input-group label { font-size: 24px; font-weight: bold; color: #000000; width: 80px; flex-shrink: 0; text-align: left; }
-        .input-group input { flex-grow: 1; height: 42px; border: 1px solid #7a7a7a; border-radius: 8px; padding: 0 15px; font-size: 18px; color: #000000; outline: none; box-sizing: border-box; }
-        .input-group input::placeholder { color: #333333; font-size: 18px; }
-        .submit-btn, .return-btn { width: 100%; height: 46px; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; color: #000000; cursor: pointer; transition: background-color 0.2s ease; }
-        .submit-btn { background-color: #cccccc; margin-top: 15px; }
-        .submit-btn:active { background-color: #b5b5b5; }
-        #return-container { width: 100%; display: flex; justify-content: center; align-items: center; margin-top: 20px; }
-        .return-btn { background-color: #cccccc; padding: 10px 20px; width: auto; height: auto; border-radius: 5px; font-size: 24px; letter-spacing: -0.5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .return-btn:active { background-color: #b5b5b5; }
-        .hidden { display: none !important; }
-    </style>
+  header{
+    background:var(--navy); color:#fff; padding:26px 32px;
+    display:grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    position: relative;
+  }
+  header::before { content: ''; display: block; }
+  header .title-area{ grid-column: 2; text-align: center; }
+  header .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.14em;
+    color:#9FB4E8; text-transform:uppercase; margin-bottom:4px;
+  }
+  header h1{ font-family:'Jua',sans-serif; font-size:24px; margin:0; letter-spacing:-.3px; }
+
+  .live{
+    grid-column: 3; justify-self: end;
+    display:flex; align-items:center; gap:8px;
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:#C7D4F0;
+  }
+  .live .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); animation:pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  @media (max-width: 600px) {
+    header { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+    header::before { display: none; }
+    .live { justify-self: center; }
+  }
+
+  main{ flex: 1; max-width:500px; width: 100%; margin:0 auto; padding:40px 24px 60px; }
+
+  /* 우산 ID 카드 표시 스타일 */
+  .umbrella-card {
+    background: var(--card); border-radius: 20px; border: 1px solid var(--line);
+    padding: 20px; text-align: center; margin-bottom: 24px;
+    box-shadow: 0 10px 30px -15px rgba(22,35,61,0.1);
+  }
+  .umbrella-card .info-label { font-size: 12px; color: var(--ink-soft); font-weight: 700; text-transform: uppercase; }
+  .umbrella-card .info-id { font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700; color: var(--blue); margin-top: 4px; }
+
+  /* 입력 폼 및 반납 컨테이너 */
+  .content-box{
+    background:var(--card); border-radius:20px; border:1px solid var(--line);
+    padding: 32px 24px; box-shadow:0 20px 50px -30px rgba(22,35,61,.2);
+  }
+
+  .input-group {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;
+  }
+  .input-group label {
+    font-size: 13px; font-weight: 700; color: var(--ink-soft);
+  }
+  .input-group input {
+    width: 100%; height: 46px; border: 1px solid var(--line); border-radius: 10px;
+    padding: 0 16px; font-size: 15px; color: var(--ink); outline: none;
+    background: #F7FAFD; transition: border-color 0.2s;
+  }
+  .input-group input:focus {
+    border-color: var(--blue); background: #fff;
+  }
+
+  /* 대여하기 버튼 (네이비/블루 테마 반영) */
+  button.rent-btn {
+    width: 100%; font-family:'Noto Sans KR',sans-serif; font-size:15px; font-weight:700;
+    padding:14px; border-radius:12px; border: none;
+    background: var(--navy); color: #fff; cursor:pointer;
+    transition: transform .08s ease, background-color 0.2s;
+    margin-top: 10px;
+  }
+  button.rent-btn:hover { background: #25334e; }
+  button.rent-btn:active { transform:scale(.98); }
+
+  /* 대시보드 반납 완료 스타일을 큼직한 버튼으로 튜닝 */
+  #return-container {
+    text-align: center; padding: 20px 0;
+  }
+  .status-msg {
+    font-size: 15px; color: var(--coral); font-weight: 700; margin-bottom: 20px;
+  }
+  button.return-action-btn {
+    font-family:'Noto Sans KR',sans-serif; font-size:16px; font-weight:700;
+    width: 100%; padding: 16px; border-radius:12px; border:1.5px solid var(--coral);
+    background:var(--coral-pale); color:var(--coral); cursor:pointer;
+    transition:transform .08s ease;
+  }
+  button.return-action-btn:active{ transform:scale(.98); }
+
+  .hidden { display: none !important; }
+</style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="title">양심우산 대여 시스템</div>
-        <div class="umbrella-info" id="umbrella-title">우산 정보를 불러오는 중...</div>
+<header>
+  <div class="title-area">
+    <div class="eyebrow">Smart Locker · Service</div>
+    <h1>양심우산 대여 시스템</h1>
+  </div>
+  <div class="live"><span class="dot"></span>실시간 연결됨</div>
+</header>
 
-        <form id="rent-form" class="hidden">
-            <div class="input-group">
-                <label for="studentId">학번 :</label>
-                <input type="text" id="studentId" placeholder="예: 20502" required autocomplete="off">
-            </div>
-            <div class="input-group">
-                <label for="studentName">이름 :</label>
-                <input type="text" id="studentName" placeholder="예: 김희정" required autocomplete="off">
-            </div>
-            <button type="submit" class="submit-btn">우산 대여하기(잠금 해제)</button>
-        </form>
+<main>
+  <div class="umbrella-card">
+    <div class="info-label">CURRENT LOCKER</div>
+    <div class="info-id" id="umbrella-title">LOADING...</div>
+  </div>
 
-        <div id="return-container" class="hidden">
-            <button id="return-btn" class="return-btn">우산 반납하기(잠금)</button>
-        </div>
+  <div class="content-box">
+    <form id="rent-form" class="hidden">
+      <div class="input-group">
+        <label for="studentId">학번 (5자리)</label>
+        <input type="text" id="studentId" placeholder="예: 20502" required autocomplete="off">
+      </div>
+      <div class="input-group">
+        <label for="studentName">이름</label>
+        <input type="text" id="studentName" placeholder="예: 김희정" required autocomplete="off">
+      </div>
+      <button type="submit" class="rent-btn">우산 대여하기 (잠금 해제)</button>
+    </form>
+
+    <div id="return-container" class="hidden">
+      <div class="status-msg">⚠️ 현재 대여 중인 우산입니다.</div>
+      <button id="return-btn" class="return-action-btn">우산 반납 완료 (잠금)</button>
     </div>
+  </div>
+</main>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "umbrella-e6536.firebaseapp.com",
-            databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "umbrella-e6536",
-            storageBucket: "umbrella-e6536.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        
-        let messaging;
-        try { messaging = firebase.messaging(); } catch(e) { console.log(e); }
+<script>
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "umbrella-e6536.firebaseapp.com",
+    databaseURL: "https://umbrella-e6536-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "umbrella-e6536",
+    storageBucket: "umbrella-e6536.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  
+  let messaging;
+  try { messaging = firebase.messaging(); } catch(e) { console.log(e); }
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const umbrellaId = urlParams.get('id') || 'umbrella_01';
-        document.getElementById('umbrella-title').innerText = `현재 선택된 우산: ${umbrellaId}`;
+  const urlParams = new URLSearchParams(window.location.search);
+  const umbrellaId = urlParams.get('id') || 'umbrella_01';
+  document.getElementById('umbrella-title').innerText = umbrellaId.toUpperCase();
 
-        const umbrellaRef = database.ref('umbrellas/' + umbrellaId);
-        const rentForm = document.getElementById('rent-form');
-        const returnContainer = document.getElementById('return-container');
-        let deviceToken = "";
+  const umbrellaRef = database.ref('umbrellas/' + umbrellaId);
+  const rentForm = document.getElementById('rent-form');
+  const returnContainer = document.getElementById('return-container');
+  let deviceToken = "";
 
-        // FCM 웹 푸시 토큰 생성 및 권한 요청
-        if (messaging) {
-            messaging.requestPermission()
-                .then(() => messaging.getToken({ vapidKey: "YOUR_FIREBASE_PUBLIC_VAPID_KEY" }))
-                .then((token) => { deviceToken = token; })
-                .catch((err) => console.log("알림 권한 거부:", err));
-        }
+  // 푸시 알림 권한 획득 및 토큰 추출
+  if (messaging) {
+      messaging.requestPermission()
+          .then(() => messaging.getToken({ vapidKey: "YOUR_FIREBASE_PUBLIC_VAPID_KEY" }))
+          .then((token) => { deviceToken = token; })
+          .catch((err) => console.log("알림 권한 거부:", err));
+  }
 
-        umbrellaRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (!data) return;
-            if (data.status === 'rented') {
-                rentForm.classList.add('hidden');
-                returnContainer.classList.remove('hidden');
-            } else {
-                rentForm.classList.remove('hidden');
-                returnContainer.classList.add('hidden');
-            }
-        });
+  // 실시간 상태에 따른 카드 뷰 스위칭
+  umbrellaRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return;
+      if (data.status === 'rented') {
+          rentForm.classList.add('hidden');
+          returnContainer.classList.remove('hidden');
+      } else {
+          rentForm.classList.remove('hidden');
+          returnContainer.classList.add('hidden');
+      }
+  });
 
-        rentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const id = document.getElementById('studentId').value.trim();
-            const name = document.getElementById('studentName').value.trim();
+  // 대여 트랜잭션 처리 (토큰 데이터 빌드 포함)
+  rentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const id = document.getElementById('studentId').value.trim();
+      const name = document.getElementById('studentName').value.trim();
 
-            if (!/^\d{5}$/.test(id)) { alert("❌ 학번은 숫자 5자리여야 합니다."); return; }
-            if (!/^[가-힣]+$/.test(name)) { alert("❌ 이름은 한글이어야 합니다."); return; }
+      if (!/^\d{5}$/.test(id)) { alert("❌ 학번은 숫자 5자리여야 합니다."); return; }
+      if (!/^[가-힣]+$/".test(name)) { alert("❌ 이름은 한글이어야 합니다."); return; }
 
-            umbrellaRef.transaction((currentData) => {
-                if (currentData === null) return currentData;
-                if (currentData.status === 'rented') return;
-                currentData.status = "rented";
-                currentData.student_id = id;
-                currentData.student_name = name;
-                currentData.rented_at = new Date().toLocaleString();
-                currentData.student_token = deviceToken; // 기기 토큰 저장
-                return currentData;
-            }, (error, committed) => {
-                if (error) alert("오류: " + error.message);
-                else if (!committed) alert("⚠️ 현재 대여 중인 우산입니다!");
-                else {
-                    alert(`${umbrellaId} 대여 신청 완료!`);
-                    document.getElementById('studentId').value = '';
-                    document.getElementById('studentName').value = '';
-                }
-            });
-        });
+      umbrellaRef.transaction((currentData) => {
+          if (currentData === null) return currentData;
+          if (currentData.status === 'rented') return;
+          currentData.status = "rented";
+          currentData.student_id = id;
+          currentData.student_name = name;
+          currentData.rented_at = new Date().toLocaleString();
+          currentData.student_token = deviceToken;
+          return currentData;
+      }, (error, committed) => {
+          if (error) alert("오류: " + error.message);
+          else if (!committed) alert("⚠️ 현재 대여 중인 우산입니다!");
+          else {
+              alert(`${umbrellaId.toUpperCase()} 대여 처리가 완료되어 보관함이 열립니다.`);
+              document.getElementById('studentId').value = '';
+              document.getElementById('studentName').value = '';
+          }
+      });
+  });
 
-        document.getElementById('return-btn').addEventListener('click', function() {
-            if (confirm(`${umbrellaId} 우산을 반납하시겠습니까?`)) {
-                umbrellaRef.update({
-                    status: "available", student_id: "", student_name: "", rented_at: "", student_token: ""
-                }).then(() => alert("반납 완료되었습니다."));
-            }
-        });
-    </script>
+  // 반납 처리
+  document.getElementById('return-btn').addEventListener('click', function() {
+      if (confirm(`${umbrellaId.toUpperCase()} 우산을 반납하시겠습니까?`)) {
+          umbrellaRef.update({
+              status: "available", student_id: "", student_name: "", rented_at: "", student_token: ""
+          }).then(() => alert("반납이 완료되어 보관함이 잠겼습니다."));
+      }
+  });
+</script>
 </body>
 </html>
