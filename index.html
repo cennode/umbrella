@@ -140,10 +140,7 @@
   };
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
-
-  // FCM 메시징 라이브러리 객체 생성 안전 장치
-  let messaging;
-  try { messaging = firebase.messaging(); } catch(e) { console.log("FCM 인프라 로드 실패:", e); }
+  const messaging = firebase.messaging();
 
   // 2. URL 주소창에서 ?id=... 값 읽기
   const urlParams = new URLSearchParams(window.location.search);
@@ -161,15 +158,30 @@
   
   let currentDeviceToken = "";
 
-  // [추가] 브라우저 웹 푸시 권한 획득 및 기기 고유 토큰 수집 로직
-  if (messaging) {
-    messaging.requestPermission()
-      .then(() => messaging.getToken({ vapidKey: "BMQJRKgNuEp8Qrfsnvq6Lk2qxnu4tNvFg7-C1GyXDAaIP5abLp6zxyYJ-3pazkQdHgcX1EHUWoeVi-sM7go7__I" })) // 파이어베이스에서 발급받은 VAPID 키 대입
+  // 🛡️ [개선 핵심] 서비스 워커 명시적 등록 후 푸시 권한 및 토큰 요청 처리
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('firebase-messaging-sw.js')
+      .then((registration) => {
+        console.log("서비스 워커 등록 완료:", registration.scope);
+        // 파이어베이스 메시징 객체에 서비스 워커 연결
+        messaging.useServiceWorker(registration);
+        
+        // 서비스 워커 로드가 확실히 끝난 뒤 권한 및 토큰 팝업 유도
+        return messaging.requestPermission();
+      })
+      .then(() => {
+        console.log("알림 권한 획득 성공!");
+        return messaging.getToken({ 
+          vapidKey: "BMQJRKgNuEp8Qrfsnvq6Lk2qxnu4tNvFg7-C1GyXDAaIP5abLp6zxyYJ-3pazkQdHgcX1EHUWoeVi-sM7go7__I" 
+        });
+      })
       .then((token) => {
         currentDeviceToken = token;
-        console.log("FCM 기기 고유 토큰 획득 완료!");
+        console.log("FCM 토큰 획득 완료:", token);
       })
-      .catch((err) => console.log("푸시 알림 권한 획득 거부 또는 오류 발생:", err));
+      .catch((err) => {
+        console.log("FCM 초기화 또는 권한 팝업 실패:", err);
+      });
   }
 
   function showMsg(text, type){
@@ -180,7 +192,7 @@
     }
   }
 
-  // 3. 실시간 상태 감지 → 화면 전환 (기존 UI 로직 완벽 매칭)
+  // 3. 실시간 상태 감지 → 화면 전환
   umbrellaRef.on('value', (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
@@ -204,7 +216,7 @@
     }
   });
 
-  // 4. 대여 처리 (student_token 필드 적재 구조 추가)
+  // 4. 대여 처리
   rentForm.addEventListener('submit', function(e){
     e.preventDefault();
     const id = document.getElementById('studentId').value.trim();
@@ -226,12 +238,12 @@
 
     umbrellaRef.transaction((currentData) => {
       if (currentData === null) return currentData;
-      if (currentData.status === 'rented') return; // 중복 트랜잭션 차단
+      if (currentData.status === 'rented') return; 
       currentData.status = 'rented';
       currentData.student_id = id;
       currentData.student_name = name;
       currentData.rented_at = new Date().toLocaleString();
-      currentData.student_token = currentDeviceToken; // [FCM 핵심] 획득한 브라우저 고유 주소를 함께 파이어베이스 DB에 밀어 넣음
+      currentData.student_token = currentDeviceToken; // 기기 토큰 함께 적재
       return currentData;
     }, (error, committed) => {
       if (error) {
@@ -253,7 +265,7 @@
       student_id: '',
       student_name: '',
       rented_at: '',
-      student_token: '' // 반납 시 기기 토큰 필드도 깔끔하게 초기화
+      student_token: ''
     }).then(() => {
       showMsg('반납 완료! 대여함이 잠겼어요. 감사합니다 :)', 'success');
     }).catch((error) => {
