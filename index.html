@@ -164,7 +164,7 @@
   // [추가] 브라우저 웹 푸시 권한 획득 및 기기 고유 토큰 수집 로직
   if (messaging) {
     messaging.requestPermission()
-      .then(() => messaging.getToken({ vapidKey: "YOUR_FIREBASE_PUBLIC_VAPID_KEY" })) // 파이어베이스에서 발급받은 VAPID 키 대입
+      .then(() => messaging.getToken({ vapidKey: "BMQJRKgNuEp8Qrfsnvq6Lk2qxnu4tNvFg7-C1GyXDAaIP5abLp6zxyYJ-3pazkQdHgcX1EHUWoeVi-sM7go7__I" })) // 파이어베이스에서 발급받은 VAPID 키 대입
       .then((token) => {
         currentDeviceToken = token;
         console.log("FCM 기기 고유 토큰 획득 완료!");
